@@ -1,0 +1,17 @@
+filebeat.inputs:
+  - type: filestream
+    id: springboot-logs
+    enabled: true
+
+    paths:
+      - /logs/application.log
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+
+setup.kibana:
+  host: "http://kibana:5601"
+
+processors:
+  - add_host_metadata: ~
+  - add_docker_metadata: ~

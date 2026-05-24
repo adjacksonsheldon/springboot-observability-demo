@@ -1,0 +1,8 @@
+scalar Date
+scalar BigDecimal
+
+type Query {
+}
+
+type Mutation{
+}

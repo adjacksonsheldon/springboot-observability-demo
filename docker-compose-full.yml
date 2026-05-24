@@ -1,0 +1,154 @@
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.13.0
+    container_name: elasticsearch
+
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=es-docker-cluster
+      - bootstrap.memory_lock=true
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      - discovery.type=single-node
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - ./elasticsearch_data:/usr/share/elasticsearch/data
+
+    ports:
+      - "9200:9200"
+
+    networks:
+      - observability
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.13.0
+    container_name: kibana
+
+    ports:
+      - "5601:5601"
+
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+
+    networks:
+      - observability
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.13.0
+    container_name: filebeat
+
+    user: root
+
+    volumes:
+      - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - app-logs:/logs
+
+    depends_on:
+      - elasticsearch
+      - kibana
+      - springboot-observability-demo
+
+    networks:
+      - observability
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:7.13.0
+    container_name: metricbeat
+
+    user: root
+
+    environment:
+      - DOCKER_API_VERSION=1.44
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./elastic/beats/metric/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+
+    depends_on:
+      - kibana
+      - elasticsearch
+
+    networks:
+      - observability
+
+  heartbeat:
+    image: docker.elastic.co/beats/heartbeat:7.13.0
+    container_name: heartbeat
+
+    volumes:
+      - ./elastic/beats/heartbeat/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+
+    environment:
+      - setup.kibana.host=kibana:5601
+
+    networks:
+      - observability
+
+  apm:
+    image: docker.elastic.co/apm/apm-server-oss:7.13.0
+    container_name: apm
+
+    volumes:
+      - ./elastic/apm/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro
+
+    ports:
+      - "8200:8200"
+
+    restart: on-failure
+
+    networks:
+      - observability
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: catalog
+      MYSQL_USER: dev
+      MYSQL_PASSWORD: dev123
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql_catalog:/var/lib/mysql
+
+    networks:
+      - observability
+
+  springboot-observability-demo:
+    image: springboot-observability-demo:latest
+    container_name: springboot-observability-demo
+
+    depends_on:
+      - mysql
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      DB_HOST: jdbc:mysql://mysql:3306/catalog?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+
+    volumes:
+      - app-logs:/app/logs
+
+    networks:
+      - observability
+
+networks:
+  observability:
+    external: true
+
+volumes:
+  mysql_catalog:
+  elasticsearch_data:
+  app-logs:

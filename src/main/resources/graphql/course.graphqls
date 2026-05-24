@@ -1,0 +1,27 @@
+type Course{
+    id: Int!
+    name: String!
+    description: String!
+    startDate: Date!
+    monthlyFee: BigDecimal!
+    category: Category!
+}
+
+input CreateCourseInput{
+    id: Int
+    name: String!
+    description: String!
+    startDate: Date!
+    monthlyFee: BigDecimal!
+    categoryId:Int!
+}
+
+extend type Query{
+    course(id: Int!):Course
+    courses:[Course]
+}
+
+extend type Mutation {
+    createCourse(course: CreateCourseInput!): Category
+    deleteCourse(id: Int!): Boolean
+}
